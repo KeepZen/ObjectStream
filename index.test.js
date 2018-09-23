@@ -1,10 +1,9 @@
 const ObjectStream = require('./index.js');
-const fs = require('fs');
 test(
   "lineStreamFrom('data.text')",
   (done)=>{
     let t = jest.fn();
-    let s = new ObjectStream(t);
+    let s = ObjectStream.map(t);
     ObjectStream.lineStreamFrom('./data.txt')
     .pipe(s);
     s.on('finish',()=>{
@@ -13,6 +12,7 @@ test(
     })
   }
 )
+
 test(
   "ObjectStream.map(f)",
   (done)=>{
@@ -51,9 +51,9 @@ test(
 )
 
 test(
-  "ObjectStream.reduce(f)",
+  "ObjectStream.reduce(f,initData)",
   (done)=>{
-    let t = (data,initData={sum:0,count:0})=>{
+    let t = (initData,data)=>{
       let {sum,count}=initData;
       sum += data.hello;
       count ++;
@@ -63,7 +63,7 @@ test(
     let s = ObjectStream.map(fn);
     ObjectStream.lineStreamFrom("./data.txt").
     pipe(ObjectStream.map(JSON.parse)).
-    pipe(ObjectStream.reduce(t)).
+    pipe(ObjectStream.reduce(t,{sum:0,count:0})).
     pipe(s);
 
     s.on(

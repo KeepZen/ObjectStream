@@ -21,15 +21,15 @@ function toLine(tail=null){
 /**
 Object Stream.
 
-This is a transform stream. Transform a stream item to a another form.
+It is a transform stream. Transform a stream item to a another form.
 
 A stream like a array, they are all have items.
-We can 'map','filter', and 'reduce' a array,
-and now with help of ObjectStream, we can do these on stream.
+We can `map`,`filter`, and `reduce` on a array,
+and now with help of `ObjectStream`, we can do these on stream.
 */
 class ObjectStream extends Transform{
   /**
-  Do **NOT** create instance with `new`, Just use static method `map`, `filter`,
+  Do **NOT** create  instance with `new`. Just use static method `map`, `filter`,
   or `reduce`.
   @private
   */
@@ -45,9 +45,7 @@ class ObjectStream extends Transform{
       this[mapFn] = operater.map;
       this[filterFn] = operater.filter;
       this[reduceFn] = operater.reduce;
-    }
-    if(typeof operater == 'function'){
-      this[mapFn] = operater;
+      this.reduceRet = operater.initRest;
     }
     this.once('pipe',(src)=>{this.upStream=src});
   }
@@ -86,7 +84,8 @@ class ObjectStream extends Transform{
   @private
   */
   _reduce(data,callback){
-    this.reduceRet = this[reduceFn](data,this.reduceRet);
+    // console.log(`${__filename},reduceRet:${JSON.stringify(this.reduceRet,null,2)}`)
+    this.reduceRet = this[reduceFn](this.reduceRet,data);
     callback();
     if(this.listenEnd !== true){
       this.listenEnd = true;
@@ -118,42 +117,47 @@ class ObjectStream extends Transform{
     }
   }
   /**
-  Get a read stream, which read `fineName` line by line.
+  Get a read stream, which read `fineName` file line by line.
+
+  Note: The empty line will be ignore.
   @arg {string} fileName - The file which will be read.
-  @return ObjectStream
+  @return {ObjectStream}
   */
   static lineStreamFrom(fileName){
     // console.log(`fileName:${fileName}`)
-    let l = new ObjectStream(toLine());
+    let l = ObjectStream.map(toLine());
     fs.createReadStream(fileName).pipe(l);
     return l;
   }
   /**
-  Map a stream use function.
+  Map a stream with function `f`.
   @arg {function} f - f(data)=>data'
-  @return ObjectStream
+  @return {ObjectStream}
   */
   static map(f){
-    return new ObjectStream(f);
+    return new ObjectStream({map:f});
   }
 
   /**
-  Reduce a stream with function.
+  Reduce a stream with function `f`.
 
   The return stream will read many time from upstream, but just write once to
   downstream.
-  @arg {function} f - (data,initData)=>initDataType;
-  @return ObjectStream.
+  @arg {function} f - (result,data)=>resultType;
+  @arg {object} initResult - The initination of result pass to reducer `f`.
+  @return {ObjectStream}
   */
-  static reduce(f){
-    return new ObjectStream({reduce:f});
+  static reduce(f,initResult){
+    return new ObjectStream({reduce:f,initRest:initResult});
   }
 
   /**
   Filter the stream.
-  Iff the `f(obj) == true` the `obj` flow to downstream.
+
+  Iff the `f(obj) == true`,
+  the `obj` will flow to downstream.
   @arg {function} f - (obj)=>bool .
-  @return ObjectStream
+  @return {ObjectStream}
   */
   static filter (f){
     return new ObjectStream({filter:f});
