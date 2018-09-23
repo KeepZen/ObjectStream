@@ -76,3 +76,29 @@ test(
     );
   }
 )
+
+test(
+  "ObjectStream.tee()",
+  (done)=>{
+    let t = ObjectStream.tee("./tee.log");
+    ObjectStream.lineStreamFrom('./data.txt')
+    .pipe( ObjectStream.map(JSON.parse) )
+    .pipe( t );
+    t.on(
+      'finish',
+      ()=>{
+        const fs = require('fs');
+        fs.access(
+          './tee.log',
+          fs.constants.F_OK,
+          (err)=>{
+            expect(err).toBe(null);
+            const exec = require('child_process').execSync;
+            exec('rm ./tee.log');
+            done();
+          }
+        )
+      }
+    );
+  }
+)

@@ -17,6 +17,7 @@ and now with help of `ObjectStream`, we can do these on stream.
     * [.map(f)](#ObjectStream.map) ⇒ [<code>ObjectStream</code>](#ObjectStream)
     * [.reduce(f, initResult)](#ObjectStream.reduce) ⇒ [<code>ObjectStream</code>](#ObjectStream)
     * [.filter(f)](#ObjectStream.filter) ⇒ [<code>ObjectStream</code>](#ObjectStream)
+    * [.tee(fileName, serizationFN)](#ObjectStream.tee) ⇒ [<code>ObjectStream</code>](#ObjectStream)
 
 <a name="new_ObjectStream_new"></a>
 
@@ -76,4 +77,18 @@ Filter the stream.
 | Param | Type | Description |
 | --- | --- | --- |
 | f | <code>function</code> | (obj)=>bool . |
+
+<a name="ObjectStream.tee"></a>
+
+### ObjectStream.tee(fileName, serizationFN) ⇒ [<code>ObjectStream</code>](#ObjectStream)
+Like tee in bash.
+
+  Read item form upstream, wirite the item to downstream and to a file.
+
+**Kind**: static method of [<code>ObjectStream</code>](#ObjectStream)  
+
+| Param | Type | Description |
+| --- | --- | --- |
+| fileName | <code>string</code> | Which file write the items. |
+| serizationFN | <code>function</code> | A funstion map the item to     a string or a buffer. The default is JONS.stringify |
 

@@ -162,6 +162,23 @@ class ObjectStream extends Transform{
   static filter (f){
     return new ObjectStream({filter:f});
   }
+
+  /**
+  Like tee in bash.
+
+  Read item form upstream, wirite the item to downstream and to a file.
+
+  @arg {string} fileName - Which file write the items.
+  @arg {function} serizationFN - A funstion map the item to
+    a string or a buffer. The default is JONS.stringify
+  @return {ObjectStream}
+  */
+  static tee(fileName,serizationFN=JSON.stringify){
+    return ObjectStream.map(function mapper(data){
+      fs.appendFile(fileName,serizationFN(data));
+      return data;
+    });
+  }
 }
 
 module.exports = ObjectStream;
