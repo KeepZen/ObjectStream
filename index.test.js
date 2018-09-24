@@ -51,7 +51,7 @@ test(
 )
 
 test(
-  "ObjectStream.reduce(f,initData)",
+  "ObjectStream.reduce(f,initResult)",
   (done)=>{
     let t = (initData,data)=>{
       let {sum,count}=initData;
@@ -98,6 +98,89 @@ test(
             done();
           }
         )
+      }
+    );
+  }
+)
+
+test(
+  "objectStream.cond()",
+  (done)=>{
+    let addOne = jest.fn( (d)=>{d.hello+=1;return d});
+    let addTow = jest.fn( (d)=>{d.hello+=2;return d} );
+    let t2 = jest.fn();
+    let ss = ObjectStream.lineStreamFrom('./data.txt')
+    .pipe( ObjectStream.map(JSON.parse) )
+    .pipe(
+      ObjectStream.cond([
+        {
+          pred: ( ({hello})=>hello == 1 ),
+          mapper: addTow
+        },
+        {
+          pred:( ({hello}) =>hello == 2 ),
+          mapper: addOne
+        },
+      ])
+    ).pipe( ObjectStream.map(t2) )
+
+    ss.on(
+      'finish',
+      ()=>{
+        expect( addOne.mock.calls.length ).toBe(2);
+        expect( addTow.mock.calls.length ).toBe(3);
+        expect( t2.mock.calls.length ).toBe(5);
+        done();
+      }
+    );
+  }
+)
+
+test(
+  "ObjectStream.if(condition,then)",
+  (done)=>{
+    let addOne = jest.fn( (d)=>{d.hello+=1;return d});
+    ObjectStream.lineStreamFrom('./data.txt')
+    .pipe( ObjectStream.map(JSON.parse) )
+    .pipe(
+      ObjectStream.if(
+        ({hello})=>hello==1,
+        addOne,
+      )
+    )
+    .on(
+      'finish',
+      ()=>{
+        expect(addOne.mock.calls.length).toBe(3);
+        done();
+      }
+    );
+  }
+)
+
+test(
+  "ObjectStream.if(condition,then,else)",
+  (done)=>{
+    let addOne = jest.fn( (d)=>{d.hello+=1;return d});
+    let addTow = jest.fn( (d)=>{d.hello+=2;return d} );
+    let t2 = jest.fn();
+    let ss = ObjectStream.lineStreamFrom('./data.txt')
+    .pipe( ObjectStream.map(JSON.parse) )
+    .pipe(
+      ObjectStream.if(
+        ({hello})=>hello==1,
+        addOne,
+        addTow,
+      )
+    )
+    .pipe( ObjectStream.map(t2) )
+    .on(
+      'finish',
+      ()=>{
+        expect(addOne.mock.calls.length).toBe(3)
+        expect(addTow.mock.calls.length).toBe(3)
+        expect(t2.mock.calls.length).toBe(6);
+        done();
       }
     );
   }
