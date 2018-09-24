@@ -21,15 +21,19 @@ function toLine(tail=null){
 /**
 Object Stream.
 
-It is a transform stream. Transform a stream item to a another form.
+It is a transform stream, use to transform itemes of a stream to a
+another form.
 
 A stream like a array, they are all have items.
-We can `map`,`filter`, and `reduce` on a array,
+And we can `map`,`filter`, and `reduce` on a array,
 and now with help of `ObjectStream`, we can do these on stream.
+
+You can find the source at [GitHub](https://github.com/KeepZen/ObjectStream).
 */
 class ObjectStream extends Transform{
   /**
-  Do **NOT** create  instance with `new`. Just use static method `map`, `filter`,
+  Do **NOT** create instance with `new`.
+  Just use static methodes `map`, `filter`,
   or `reduce`.
   @private
   */
@@ -41,12 +45,16 @@ class ObjectStream extends Transform{
         ...options,
       }
     );
-    if(typeof operater == 'object'){
-      this[mapFn] = operater.map;
-      this[filterFn] = operater.filter;
-      this[reduceFn] = operater.reduce;
-      this.reduceRet = operater.initRest;
+    this[mapFn] = operater.map;
+    if(operater.speard){
+      this.speard = true;
     }
+    if(operater.flowUndefined === false){
+      this.flowUndefined = false;
+    }
+    this[filterFn] = operater.filter;
+    this[reduceFn] = operater.reduce;
+    this.reduceRet = operater.initRest;
     this.once('pipe',(src)=>{this.upStream=src});
   }
   /**
@@ -56,27 +64,25 @@ class ObjectStream extends Transform{
   _map(data,callback){
     // console.log(this[mapFn].name);
     let ret=this[mapFn](data);
-    if(ret instanceof Array){
-      ret.forEach(item => this.push(item) );
-    }else{
-      /** Flow map result to downstream. */
-      this.push(ret);
+    if(
+      this.speard === true
+      && ret instanceof Array
+    ){
+      for(let r of ret){
+        this.push(r);//Flow result to downstream.
+      }
+      /** Inform upstream now can flow more data. */
+      callback();
+      return;
     }
-    /** Inform upstream now can flow more data. */
+    if(this.flowUndefined == false && ret === undefined){
+      callback();
+      return;
+    }
+    this.push(ret);
     callback();
   }
-  /**
-  Filter stream.
 
-  If data is stasify, flow to downstream, else just get more data from upstream.
-  @private
-  */
-  _filter(data,callback){
-    if(this[filterFn](data)){
-      this.push(data);
-    }
-    callback();
-  }
   /**
   Reduce the stream.
 
@@ -98,6 +104,7 @@ class ObjectStream extends Transform{
       );
     }
   }
+
   /**
   Implament of transform.
   @private
@@ -116,26 +123,24 @@ class ObjectStream extends Transform{
       return;
     }
   }
-  /**
-  Get a read stream, which read `fineName` file line by line.
 
-  Note: The empty line will be ignore.
-  @arg {string} fileName - The file which will be read.
-  @return {ObjectStream}
-  */
-  static lineStreamFrom(fileName){
-    // console.log(`fileName:${fileName}`)
-    let l = ObjectStream.map(toLine());
-    fs.createReadStream(fileName).pipe(l);
-    return l;
-  }
   /**
   Map a stream with function `f`.
   @arg {function} f - f(data)=>data'
+  @arg {boolean} speard - Wheather to speard the result if it is a array.
+    The Default value is `false`.
+  @arg {boolean} flowUndefined - Wheather flow the `undefined` to downstream.
+    The default is **YES**.
   @return {ObjectStream}
   */
-  static map(f){
-    return new ObjectStream({map:f});
+  static map(
+    f,
+    {
+      speard,
+      flowUndefined=true,
+    }={}
+  ){
+    return new ObjectStream({map:f,speard,flowUndefined});
   }
 
   /**
@@ -156,21 +161,36 @@ class ObjectStream extends Transform{
 
   Iff the `f(obj) == true`,
   the `obj` will flow to downstream.
-  @arg {function} f - (obj)=>bool .
+  @arg {function} f - (obj)=>boolean .
   @return {ObjectStream}
   */
   static filter (f){
-    return new ObjectStream({filter:f});
+    return ObjectStream.cond( [ {pred:f,mapper:v=>v} ] );
+  }
+
+  /**
+  Get a read stream, which read `fineName` file line by line.
+
+  Note: The empty line will be ignore.
+  @arg {string} fileName - The file which will be read.
+  @return {ObjectStream}
+  */
+  static lineStreamFrom(fileName){
+    // console.log(`fileName:${fileName}`)
+    let l = ObjectStream.map(toLine(),{speard:true});
+    fs.createReadStream(fileName).pipe(l);
+    return l;
   }
 
   /**
   Like tee in bash.
 
-  Read item form upstream, wirite the item to downstream and to a file.
+  Read item form upstream, wirite the item to downstream and
+  to a file named by `fileName`.
 
   @arg {string} fileName - Which file write the items.
   @arg {function} serizationFN - A funstion map the item to
-    a string or a buffer. The default is JONS.stringify
+    a string or a buffer. The default is `JONS.stringify`.
   @return {ObjectStream}
   */
   static tee(fileName,serizationFN=JSON.stringify){
@@ -179,6 +199,64 @@ class ObjectStream extends Transform{
       return data;
     });
   }
+
+  /**
+  Process the items with condition.
+
+  If the some condition can not be hanlder,
+  it jest be ignored, and not to flow to downstream.
+
+  @arg {Array(object)} conds - The iteme of the array, is a object,
+  like `{pred,mapper}`, the `precd` is `function(object)=>boolean`,
+  and `mapper` is `function(object)=>annotherObject`.
+  @return {ObjectStream}
+  */
+  static cond( conds ){
+    return ObjectStream.map(
+      function condHandler(data){
+        for(let cond of conds){
+          if(cond.pred(data)){
+            return cond.mapper(data);
+          }
+        }
+      },
+      {
+        flowUndefined:false,
+      }
+    )
+  }
+
+  /**
+  If-then-else clause in stream.
+
+  @arg {function} cond - function(obj)=>boolean.
+  @arg {function} then - function(obj)=>anotherObj.
+    The condition is satisfied, the function will be called.
+  @arg {function} elseFun - function(obj)=>anotherObje.
+    The condition is not satisfied this function will be called.
+
+    This is option. If there is not `elseFn`, the item which don't satisfy
+    the condtion, will be ignored.
+  @return {ObjectStream}
+  */
+
+  static if(cond,then,elseFn=Function.prototype){
+
+    return ObjectStream.cond(
+      [
+        {
+          pred:cond,
+          mapper:then
+        },
+        {
+          pred:()=>true,
+          mapper:elseFn,
+        },
+      ]
+    );
+  }
+
 }
+
 
 module.exports = ObjectStream;

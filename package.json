@@ -1,12 +1,12 @@
 {
   "name": "@keepzen/object-stream",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Transfrom Stream support map, filter and reduce",
   "main": "index.js",
   "scripts": {
     "test": "npx jest",
     "doc": "jsdoc2md index.js > README.md",
-    "publish": "mv ~/.npmrc ~/npmrc;yarn publish --access public ; mv ~/npmrc ~/.npmrc"
+    "pub": "mv ~/.npmrc ~/npmrc;yarn publish --access public ; mv ~/npmrc ~/.npmrc"
   },
   "author": "keep.in.zen",
   "license": "MIT",
