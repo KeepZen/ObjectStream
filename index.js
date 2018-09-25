@@ -239,21 +239,11 @@ class ObjectStream extends Transform{
     the condtion, will be ignored.
   @return {ObjectStream}
   */
-
   static if(cond,then,elseFn=Function.prototype){
-
-    return ObjectStream.cond(
-      [
-        {
-          pred:cond,
-          mapper:then
-        },
-        {
-          pred:()=>true,
-          mapper:elseFn,
-        },
-      ]
-    );
+    return ObjectStream.cond([
+      {pred:cond,mapper:then},
+      { pred:()=>true,mapper:elseFn,},
+      ]);
   }
 
 }
