@@ -6,7 +6,7 @@
   "scripts": {
     "test": "npx jest",
     "doc": "jsdoc2md index.js > README.md",
-    "pub": "mv ~/.npmrc ~/npmrc;yarn publish --access public ; mv ~/npmrc ~/.npmrc"
+    "push": "yarn publish --access public"
   },
   "author": "keep.in.zen",
   "license": "MIT",

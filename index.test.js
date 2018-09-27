@@ -127,9 +127,9 @@ test(
     ss.on(
       'finish',
       ()=>{
-        expect( addOne.mock.calls.length ).toBe(2);
-        expect( addTow.mock.calls.length ).toBe(3);
-        expect( t2.mock.calls.length ).toBe(5);
+        expect( addOne.mock.calls.length ).toBe(1);
+        expect( addTow.mock.calls.length ).toBe(1);
+        expect( t2.mock.calls.length ).toBe(2);
         done();
       }
     );
@@ -144,14 +144,14 @@ test(
     .pipe( ObjectStream.map(JSON.parse) )
     .pipe(
       ObjectStream.if(
-        ({hello})=>hello==1,
+        ({hello})=>hello>2,
         addOne,
       )
     )
     .on(
       'finish',
       ()=>{
-        expect(addOne.mock.calls.length).toBe(3);
+        expect(addOne.mock.calls.length).toBe(4);
         done();
       }
     );
@@ -168,7 +168,7 @@ test(
     .pipe( ObjectStream.map(JSON.parse) )
     .pipe(
       ObjectStream.if(
-        ({hello})=>hello==1,
+        ({hello})=>hello<=3,
         addOne,
         addTow,
       )

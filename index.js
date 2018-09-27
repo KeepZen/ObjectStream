@@ -243,7 +243,7 @@ class ObjectStream extends Transform{
     return ObjectStream.cond([
       {pred:cond,mapper:then},
       { pred:()=>true,mapper:elseFn,},
-      ]);
+    ]);
   }
 
 }
