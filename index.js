@@ -55,7 +55,7 @@ class ObjectStream extends Transform{
     this[filterFn] = operater.filter;
     this[reduceFn] = operater.reduce;
     this.reduceRet = operater.initRest;
-    this.once('pipe',(src)=>{this.upStream=src});
+    this.once('pipe',(src)=>{this.upstream=src});
   }
   /**
   Map data with 'map' operater, and flow the result to downstream.
@@ -95,7 +95,7 @@ class ObjectStream extends Transform{
     callback();
     if(this.listenEnd !== true){
       this.listenEnd = true;
-      this.upStream.once(
+      this.upstream.once(
         'finish',
         ()=>{
           this.push(this.reduceRet);
@@ -174,12 +174,18 @@ class ObjectStream extends Transform{
   Note: The empty line will be ignore.
   @arg {string} fileName - The file which will be read.
   @return {ObjectStream}
+  @deprecate
+  Replace with
+  `ObjectStream.from(fs.createReadStream(fileName),chuckToLineString)
+  `
   */
   static lineStreamFrom(fileName){
     // console.log(`fileName:${fileName}`)
-    let l = ObjectStream.map(toLine(),{speard:true});
-    fs.createReadStream(fileName).pipe(l);
-    return l;
+
+    return ObjectStream
+      .from(fs.createReadStream(fileName))
+      .pipe(ObjectStream.map(toLine(),{speard:true}));
+
   }
 
   /**
@@ -246,7 +252,21 @@ class ObjectStream extends Transform{
     ]);
   }
 
-}
+  /**
+  Create a new stream from a upstream.
+  @arg {readStream} upstream
+  @arg {Function} where - A Function return boolean. Default is function always return true.
+  @return {ObjectStream}
+  */
+  static from(upstream,where=()=>true){
+    if( !(upstream instanceof fs.ReadStream) ){
+      throw Error('upstream must be a readStream');
+    }
+    return upstream.pipe(
+      ObjectStream.filter(where)
+    );
+  }
 
+}
 
 module.exports = ObjectStream;

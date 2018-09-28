@@ -185,3 +185,21 @@ test(
     );
   }
 )
+
+test(
+  "ObjectStream.from(upStream)",
+  (done)=>{
+    let fn = jest.fn();
+    const fs = require('fs');
+    ObjectStream.from(fs.createReadStream('./data.txt'))
+    .pipe(ObjectStream.map(fn))
+    .on(
+      'finish',
+      ()=>{
+         console.log(fn.mock.calls)
+         expect(fn.mock.calls.length).toBeGreaterThan(0);
+         done();
+      }
+    )
+  }
+)

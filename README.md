@@ -23,6 +23,7 @@ You can find the source at [GitHub](https://github.com/KeepZen/ObjectStream).
     * [.tee(fileName, serizationFN)](#ObjectStream.tee) ⇒ [<code>ObjectStream</code>](#ObjectStream)
     * [.cond(conds)](#ObjectStream.cond) ⇒ [<code>ObjectStream</code>](#ObjectStream)
     * [.if(cond, then, elseFun)](#ObjectStream.if) ⇒ [<code>ObjectStream</code>](#ObjectStream)
+    * [.from(upstream, where)](#ObjectStream.from) ⇒ [<code>ObjectStream</code>](#ObjectStream)
 
 <a name="new_ObjectStream_new"></a>
 
@@ -81,6 +82,9 @@ Get a read stream, which read `fineName` file line by line.
   Note: The empty line will be ignore.
 
 **Kind**: static method of [<code>ObjectStream</code>](#ObjectStream)  
+**Deprecate**: Replace with
+  `ObjectStream.from(fs.createReadStream(fileName),chuckToLineString)
+  `  
 
 | Param | Type | Description |
 | --- | --- | --- |
@@ -127,4 +131,16 @@ If-then-else clause in stream.
 | cond | <code>function</code> | function(obj)=>boolean. |
 | then | <code>function</code> | function(obj)=>anotherObj.     The condition is satisfied, the function will be called. |
 | elseFun | <code>function</code> | function(obj)=>anotherObje.     The condition is not satisfied this function will be called.     This is option. If there is not `elseFn`, the item which don't satisfy     the condtion, will be ignored. |
+
+<a name="ObjectStream.from"></a>
+
+### ObjectStream.from(upstream, where) ⇒ [<code>ObjectStream</code>](#ObjectStream)
+Create a new stream from a upstream.
+
+**Kind**: static method of [<code>ObjectStream</code>](#ObjectStream)  
+
+| Param | Type | Description |
+| --- | --- | --- |
+| upstream | <code>readStream</code> |  |
+| where | <code>function</code> | A Function return boolean. Default is function always return true. |
 
