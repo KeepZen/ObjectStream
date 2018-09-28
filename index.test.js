@@ -1,4 +1,6 @@
 const ObjectStream = require('./index.js');
+const getChuckToLinesHandler= ObjectStream.getChuckToLinesHandler;
+const fs = require('fs');
 test(
   "lineStreamFrom('data.text')",
   (done)=>{
@@ -47,6 +49,26 @@ test(
         done();
       }
     );
+  }
+)
+
+test(
+  "ObjectStream.filterOut(predictedFn)",
+  (done)=>{
+    let fn = jest.fn();
+    ObjectStream.from(fs.createReadStream('./data.txt'))
+    .pipe(ObjectStream.map(getChuckToLinesHandler(),{speard:true}))
+    .pipe(ObjectStream.map(JSON.parse))
+    .pipe(ObjectStream.filterOut( ({hello}) => hello>3 ))
+    .pipe(ObjectStream.map(fn))
+    .on(
+      'finish',
+      ()=>{
+        console.log(fn.mock.calls)
+        expect(fn.mock.calls.length).toBe(3)
+        done();
+      }
+    )
   }
 )
 
@@ -190,13 +212,12 @@ test(
   "ObjectStream.from(upStream)",
   (done)=>{
     let fn = jest.fn();
-    const fs = require('fs');
     ObjectStream.from(fs.createReadStream('./data.txt'))
     .pipe(ObjectStream.map(fn))
     .on(
       'finish',
       ()=>{
-         console.log(fn.mock.calls)
+         // console.log(fn.mock.calls)
          expect(fn.mock.calls.length).toBeGreaterThan(0);
          done();
       }

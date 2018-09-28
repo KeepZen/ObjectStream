@@ -4,9 +4,16 @@ const mapFn = Symbol('map');
 const filterFn = Symbol('filter');
 const reduceFn = Symbol('reduce');
 
-function toLine(tail=null){
+/**
+Get a function that can use to transform a chuck to Arrary of string.
+
+@arg {string} code - The encode of the chuck. Default is 'uft8'.
+@return {function} - f(bufferORString)=>Array(string)
+*/
+function getChuckToLinesHandler(code='utf8'){
+  let tail=null;
   return function handler(chuck){
-    let lines = chuck.toString().split("\n");
+    let lines = chuck.toString(code).split("\n");
     // console.log(lines)
     let lastLine = lines.pop();
     if(tail != null){
@@ -18,6 +25,7 @@ function toLine(tail=null){
     return lines;
   }
 }
+
 /**
 Object Stream.
 
@@ -125,12 +133,20 @@ class ObjectStream extends Transform{
   }
 
   /**
+  Add `finish` event handler for this stream.
+  @arg {function} f - A function require no argument.
+  */
+  finish(f){
+    this.once('finish',f);
+  }
+  /**
   Map a stream with function `f`.
   @arg {function} f - f(data)=>data'
-  @arg {boolean} speard - Wheather to speard the result if it is a array.
-    The Default value is `false`.
-  @arg {boolean} flowUndefined - Wheather flow the `undefined` to downstream.
+  @arg {object} options
+  @arg {boolean} options.speard - Wheather to speard the result if it is a array. The Default value is `false`.
+  @arg {boolean} options.flowUndefined - Wheather flow the `undefined` to downstream.
     The default is **YES**.
+
   @return {ObjectStream}
   */
   static map(
@@ -169,6 +185,15 @@ class ObjectStream extends Transform{
   }
 
   /**
+  Filter out itemes of the upstream.
+  @arg {function} f - If `f(data) == true`, the `data` will filter out from stream.
+  @return {ObjectStream}
+  */
+  static filterOut(f){
+    return ObjectStream.filter( t=>!f(t) );
+  }
+
+  /**
   Get a read stream, which read `fineName` file line by line.
 
   Note: The empty line will be ignore.
@@ -176,16 +201,21 @@ class ObjectStream extends Transform{
   @return {ObjectStream}
   @deprecate
   Replace with
-  `ObjectStream.from(fs.createReadStream(fileName),chuckToLineString)
-  `
+  ```js
+  ObjectStream.from(fs.createReadStream(fileName))
+  .pipe(ObjectStream.map(chuckToStringArray,{speard:true}))
+  ```
   */
   static lineStreamFrom(fileName){
     // console.log(`fileName:${fileName}`)
-
     return ObjectStream
       .from(fs.createReadStream(fileName))
-      .pipe(ObjectStream.map(toLine(),{speard:true}));
-
+      .pipe(
+        ObjectStream.map(
+          getChuckToLinesHandler(),
+          {speard:true},
+        )
+      );
   }
 
   /**
@@ -269,4 +299,13 @@ class ObjectStream extends Transform{
 
 }
 
+/**
+Alias of [filter](#ObjectStream.filter)
+@static
+@function
+@name ObjectStream.filterIn
+*/
+ObjectStream.filterIn = ObjectStream.filter;
+
 module.exports = ObjectStream;
+module.exports.getChuckToLinesHandler = getChuckToLinesHandler;

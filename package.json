@@ -1,6 +1,6 @@
 {
   "name": "@keepzen/object-stream",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Transfrom Stream support map, filter and reduce",
   "main": "index.js",
   "scripts": {
