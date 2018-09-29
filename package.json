@@ -1,6 +1,6 @@
 {
   "name": "@keepzen/object-stream",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Transfrom Stream support map, filter and reduce",
   "main": "index.js",
   "scripts": {
@@ -15,5 +15,6 @@
     "jest": "^23.6.0",
     "jsdoc-to-markdown": "^4.0.1"
   },
+  "keywords":["stream","nodejs","transform stream"],
   "repository": "git@github.com:KeepZen/ObjectStream.git"
 }
