@@ -4,7 +4,10 @@ const fn = Symbol('fn');
 const reduceRet = Symbol('reduceRet');
 const pushS = Symbol('push');
 /**
-You can find the source at [GitHub](https://github.com/KeepZen/ObjectStream) .
+You can find the source at [GitHub](https://github.com/KeepZen/ObjectStream).
+
+Now do not need to write the tedious of `.pipe(ObjectStream.someMethod(f))`s.
+`map(f)`, `reduce(f)` and other methods have piped this stream into the new one.
 @module @keepzen/object-stream
 */
 
@@ -37,16 +40,15 @@ Create a readable stream maper with function `f`.
 @arg {fucnction} required.f - `f(obj)=>anotherObj;`
   Uset to transform `obj` to `anotherObj`
 @arg {object} options
-@arg {boolean} options.speard - If the result is an array wheather speard it.
-@arg {boolean} options.filterOutUndefined - If the result is
- undefined wheather filter out it.
+@arg {boolean} options.spread - If the result is an array whether spread it.
+@arg {boolean} options.filterOutUndefined - Whether filter out `undefined`.
 @return {function} - `f(any,string,functionNoArg,functionWithOneArg)`
 @package
 */
-function streamMaperMaker(f, { speard=false,filterOutUndefined=true}={},) {
+function streamMaperMaker(f, { spread=false,filterOutUndefined=true}={},) {
   return function maper(data,encoding,wantMoreData,push){
     let ret = f(data);
-    if(speard === true && ret instanceof Array) {
+    if(spread === true && ret instanceof Array) {
       if(filterOutUndefined){
         ret = ret.filter( t=> t!==undefined );
       }
@@ -54,7 +56,6 @@ function streamMaperMaker(f, { speard=false,filterOutUndefined=true}={},) {
       wantMoreData();
       return;
     }
-
     if( !(filterOutUndefined && ret == undefined) ){
       push(ret);
     }
@@ -92,7 +93,7 @@ class ObjectStream extends Transform{
 
   Just use static methods to get instance.
   */
-  constructor(f,type='mapper'){
+  constructor(f,type){
     super(
       {
         readableObjectMode: true,
@@ -100,7 +101,6 @@ class ObjectStream extends Transform{
       }
     );
     this[fn]=f;
-    // this[type] = type;
     if(type == 'reducer'){
       this[pushS] =(data)=>{
         this[reduceRet] = data;
@@ -108,16 +108,58 @@ class ObjectStream extends Transform{
     }else{
       this[pushS]=this.push.bind(this);
     }
-
     let upstreamPipeHandler=(src)=>{
       this.upstream=src;
-      if( type != 'mapper' ){
-        this.upstream.once('finish', ()=>{this.push(this[reduceRet]);}, );
+      if( type == 'reducer' ){
+        this.upstream.on('finish', ()=>{this.push(this[reduceRet]);}, );
       }
     }
-    this.once('pipe',upstreamPipeHandler);
+    this.on('pipe',upstreamPipeHandler);
+    /**
+    Alias of [map](#module_@keepzen/object-stream..ObjectStream+map) method.
+    @arg {functtion} f
+    @return {ObjectStream}
+    */
+    this.transform = this.map;
+    /**
+    Alias of[filter](#module_@keepzen/object-stream..ObjectStream+filter)
+    method.
+
+    @arg {function} f,
+    @return {ObjectStream}
+    */
+    this.filterIn = this.filter;
   }
 
+  /**
+  Create a ObjectStream instance.
+
+  You can use `.map(f)`, `.filter(f)` or other methods to get a new stream object,
+  but the function `f`  will never be called, until some data be write to this
+  stream or one readable stream pipe to this object.
+  @return {ObjectStream}.
+  */
+  static create(){
+    return new ObjectStream(d=>d);
+  }
+
+  /**
+  Create a new stream from a upstream.
+  @arg {ReadableStream} upstream
+  @arg {Function} where - A Function return boolean. Default is function always return true.
+  @return {ObjectStream}
+  */
+  static from(upstream,where=()=>true){
+    if( !(upstream instanceof Readable) ){
+      throw Error('upstream must be a readStream');
+    }
+    function fromMapper(data){
+      return where(data)? data:undefined;
+    }
+    return upstream.pipe(
+      new ObjectStream(streamMaperMaker(fromMapper,{filterOutUndefined:true}))
+    );
+  }
   /**
   Implament of transform.
   @private
@@ -127,11 +169,26 @@ class ObjectStream extends Transform{
   }
 
   /**
+  Get the source of this stream.
+  @return {ReadableStream|ObjectStream}
+  */
+  source(){
+    if(!this.upstream){
+      return this;
+    }
+    if( !(this.upstream instanceof ObjectStream) ) {
+      return this.upstream;
+    }
+    return this.upstream.source();
+  }
+
+  /**
   Add `finish` event handler for this stream.
   @arg {function} f - A function require no argument.
   */
   finish(f){
-    this.once('finish',f);
+    this.on('finish',f);
+    return this;
   }
 
   /**
@@ -139,15 +196,15 @@ class ObjectStream extends Transform{
 
   @arg {function} f - `f(data)=>anotherFormOfData`
   @arg {object} options
-  @arg {boolean} options.speard - Wheather to speard the result if it is a array. The Default value is `false`.
-  @arg {boolean} options.filterOutUndefined - Wheather filter out the
+  @arg {boolean} options.spread - Whether to spread the result if it is a array. The Default value is `false`.
+  @arg {boolean} options.filterOutUndefined - Whether filter out the
     `undefined` from upstream.
     The default is `false`.
   @return {ObjectStream}
   */
-  static map( f,{speard=false,filterOutUndefined=false,}={} ){
-    f = streamMaperMaker( f,  {speard,filterOutUndefined}) ;
-    return new ObjectStream(f);
+  map( f,{spread=false,filterOutUndefined=false,}={} ){
+    f = streamMaperMaker( f,  {spread,filterOutUndefined}) ;
+    return this.pipe(new ObjectStream(f));
   }
 
   /**
@@ -159,11 +216,12 @@ class ObjectStream extends Transform{
   @arg {object} initResult - The initialization result pass to reducer `f`.
   @return {ObjectStream}
   */
-  static reduce(f,initResult){
-    return new ObjectStream( streamReducerMaker(f,initResult),"reducer" );
+  reduce(f,initResult){
+    let fn = streamReducerMaker(f,initResult);
+    return this.pipe(new ObjectStream(fn ,"reducer") );
   }
 
-/**
+  /**
   Process the items with conditions.
 
   If there are some conditions can not be handle,
@@ -174,7 +232,7 @@ class ObjectStream extends Transform{
   and `mapper` is `function(object)=>annotherObject`.
   @return {ObjectStream}
   */
-  static cond( conds ){
+  cond( conds ){
     function condHandler(data){
       for(let {pred:predicte,mapper} of conds){
         if(predicte(data)){
@@ -184,7 +242,7 @@ class ObjectStream extends Transform{
       // If none predicte be true, `undefine` will be returned.
       // So `filterOutUndefined=true` are set to filter out them.
     }
-    return ObjectStream.map(condHandler,{ filterOutUndefined:true, } );
+    return this.map(condHandler,{ filterOutUndefined:true, } );
   }
 
   /**
@@ -195,8 +253,8 @@ class ObjectStream extends Transform{
   @arg {function} f - (obj)=>boolean .
   @return {ObjectStream}
   */
-  static filter (f){
-    return ObjectStream.cond( [ {pred:f,mapper:v=>v} ] );
+  filter (f){
+    return this.cond( [ {pred:f,mapper:v=>v} ] );
   }
 
   /**
@@ -204,27 +262,10 @@ class ObjectStream extends Transform{
   @arg {function} f - If `f(data) == true`, the `data` will filter out from upstream.
   @return {ObjectStream}
   */
-  static filterOut(f){
-    return ObjectStream.filter( t=>!f(t) );
+  filterOut(f){
+    return this.filter( t=>!f(t) );
   }
 
-  /**
-  Like tee in shell.
-
-  Read items form upstream, wirit the items to downstream and
-  to a file named by `fileName`.
-
-  @arg {string} fileName - Which file record the items.
-  @arg {function} serializationFn - A function map the item to
-  a string or a buffer. The default is `JONS.stringify`.
-  @return {ObjectStream}
-  */
-  static tee(fileName,serizalizationFn=JSON.stringify){
-    return ObjectStream.map(function mapper(data){
-      fs.appendFile(fileName,serizalizationFn(data));
-      return data;
-    });
-  }
 
   /**
   If-then-else clause in stream.
@@ -239,51 +280,21 @@ class ObjectStream extends Transform{
     the condition, will be ignored.
   @return {ObjectStream}
   */
-  static if(cond,then,elseFn=Function.prototype){
-    return ObjectStream.cond([
-      {pred:cond,mapper:then},
-      { pred:()=>true,mapper:elseFn,},
-    ]);
+  if(cond,then,elseFn=Function.prototype){
+    return this.cond([{pred:cond,mapper:then},{pred:()=>true,mapper:elseFn}]);
   }
 
   /**
-  Create a new stream from a upstream.
-  @arg {readStream} upstream
-  @arg {Function} where - A Function return boolean. Default is function always return true.
+  Just observe the stream items with function `f`, not change them.
+  @arg {function} f - The function use to observer stream item.
   @return {ObjectStream}
   */
-  static from(upstream,where=()=>true){
-    if( !(upstream instanceof Readable) ){
-      throw Error('upstream must be a readStream');
-    }
-    return upstream.pipe(
-      ObjectStream.filter(where)
-    );
-  }
-
-  /**
-  Replace with
-  ```js
-  ObjectStream.from(fs.createReadStream(fileName))
-    .pipe(ObjectStream.map(getChuckToLinesHandler(),{speard:true}))
-  ```
-  @deprecated since version 0.1.3
-  */
-  static lineStreamFrom(fileName){
-    return ObjectStream.from(fs.createReadStream(fileName))
-      .pipe(ObjectStream.map( getChuckToLinesHandler(),{speard:true}))
+  observer(f){
+    return this.filter(data=>{f(data);return true;});
   }
 }
 
-/**
-Alias of [filter](#module_@keepzen/object-stream..ObjectStream.filter).
-
-*/
-ObjectStream.filterIn = ObjectStream.filter;
-
-/**
-Alias of [map](#moddule_@keepzen/object-stream..ObjectStream.map).
-*/
-ObjectStream.transform = ObjectStream.map;
-module.exports = ObjectStream;
-module.exports.getChuckToLinesHandler = getChuckToLinesHandler;
+module.exports = {
+  ObjectStream,
+  getChuckToLinesHandler,
+}
